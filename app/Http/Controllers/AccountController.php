@@ -7,21 +7,22 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use App\Models\ReferCode;
 
 class AccountController extends Controller
 {
     public function register(Request $request)
     {
-        // Validate input
+        // ✅ Validate input
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|min:5',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
-            'role'=>'required|in:admin,user',
-            'referred_code'=>'required|string|max:255',
+            'role' => 'required|in:admin,user',
+            'referred_code' => 'required|string|max:255',
         ]);
 
-        // Handle validation failure
         if ($validator->fails()) {
             return response()->json([
                 'status' => 400,
@@ -29,22 +30,48 @@ class AccountController extends Controller
             ], 400);
         }
 
+        // ✅ Check referred code validity
+        $refer = ReferCode::where('code', $request->referred_code)->first();
 
-        // Create new user
+        if (!$refer) {
+            return response()->json([
+                'status' => 400,
+                'message' => 'Invalid referral code.'
+            ], 400);
+        }
+
+ 
+
+        // ✅ Create the user
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'referred_code'=>$request->referred_code,
-            'password'=>Hash::make($request->password),
-            'role'=>$request->role
+            'password' => Hash::make($request->password),
+            'role' => $request->role,
+            'referred_code' => $request->referred_code,
         ]);
 
-        // Return success response
+        // ✅ Increment the "used" count of the referral code
+        $refer->increment('used');
+
+        // ✅ Generate and assign a unique referral code for this new user
+        do {
+            $newCode = strtoupper(Str::random(8));
+        } while (ReferCode::where('code', $newCode)->exists());
+
+        ReferCode::create([
+            'user_id' => $user->id,
+            'code' => $newCode,
+            'used' => 0,
+        ]);
+
+        // ✅ Return success response
         return response()->json([
             'status' => 200,
-            'message' => 'User registered successfully',
-            'user' => $user
-        ],200);
+            'message' => 'User registered successfully.',
+            'user' => $user,
+            'generated_refer_code' => $newCode
+        ], 200);
     }
 
     // auth function

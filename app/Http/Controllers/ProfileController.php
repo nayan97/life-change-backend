@@ -9,27 +9,35 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Storage;
-
+use App\Models\ReferCode;
 
 class ProfileController extends Controller
 {
     /**
      * Get logged-in user profile
      */
+
     public function show(Request $request)
     {
         $user = $request->user();
 
-        // Append full image URL for avatar
+        // ✅ Append full image URL for avatar
         $user->avatar_url = $user->avatar
             ? asset('storage/' . $user->avatar)
             : null;
+
+        // ✅ Fetch user's referral code (the one they own)
+        $referCode = ReferCode::where('user_id', $user->id)->first();
+
+        // ✅ Add referral code to response (null if not found)
+        $user->code = $referCode ? $referCode->code : null;
 
         return response()->json([
             'status' => true,
             'user' => $user,
         ]);
     }
+
 
     /**
      * Update user profile info

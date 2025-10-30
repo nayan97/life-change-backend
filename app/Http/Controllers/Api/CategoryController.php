@@ -14,12 +14,17 @@ class CategoryController extends Controller
      */
     public function index()
     {
-        $categories = Category::latest()->paginate(10)->map(function ($category) {
-                $category->image_url = $category->image 
-                    ? asset('storage/' . $category->image) 
-                    : null;
-                return $category;
-            });;
+        // Paginate then transform the underlying collection. LengthAwarePaginator
+        // does not provide a `map` method directly, so use getCollection()->transform().
+        $categories = Category::latest()->paginate(10);
+
+        $categories->getCollection()->transform(function ($category) {
+            $category->image_url = $category->image
+                ? asset('storage/' . $category->image)
+                : null;
+
+            return $category;
+        });
 
         return response()->json($categories);
     }
